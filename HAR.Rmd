@@ -5,38 +5,188 @@ date: "27 de diciembre de 2015"
 output: html_document
 ---
 
-## Overview
+# Overview
 
 The objective is to perform an analysis of data from Human Activity Recognition project (HAR) corresponding to 6 different practicioners exercising Weight Lifting. From this analysis we may produce a predictor function, which can serve to classify exercises out of sample i.e. out of the training data set.  
 
 
-## HAR dataset
+# HAR dataset
 
-There is a train data set and a validation data set.  highlighting basic features of the data, by using confidence intervals and/or tests.
+There is a training data set ("pml-training.csv"), which will be used  for both training and testing, except for the k-fold cross validation, and a validation data set ("pml-testing.csv"). 
 
+The training data set contains 2 different types of register:
+- Register type 1: These are samples taken from different sensors, mainly from 4 different ones wearables: Belt, arm and forearm, and one on the dumbbell. Typeical measures taken are: gyros, accelerometer, magnetometer x,y and z for the 4 different sensors, and the corresponding translation into roll, pitch and yaw movements. There are 55 variables. 
 
-## Methodology
+- Register type 2: These are statistics from some of the previous measures, taken during a time window. This information comes from another field/variable num_window, and only when there is a change of window (where another field, new_window changes to "yes"), the last register contains stats like Kurtosis, Skewness, Std deviation / Variance, Average (4 moments), Min,  Max and range (amplitude) for roll, pitch, yaw and acceleration of the 4 sensors. There are 98 stat variables.   
 
-- Define your error rate
-- Split data into:
-    Training (60% of "PML-testing.csv"), Testing (the remaining 40%), Validation ("PML-testing.csv")
-- On the training set pick prediction function
-    Use cross-validation with the testing partition of the training set.
-- Apply to the validation sample (PML-testing.csv)
+### This doesn't apply to the testing data set where we find only registers type 1. 
 
+# Methodology
+
+- Define your error rate. WE will consider for this project 5%.
+- Step 1: Read the data and split data into:
+    Training (60% of "pml-training.csv"), Testing (the remaining 40%), Validation ("pml-testing.csv")
+- Step 2: On the training set pick a prediction function (2 for the 2 dofferent register types). These will be our first tries.
+- Step 3: Use cross-validation with the testing partition of the training set, using the k-fold method.
+- Step 4: Apply to the validation sample ("pml-testing.csv"")
+
+# Steps
+
+## Step 1
 The first exploratory analysis of the data show the following conclussions:
+The new_window variable eq. "yes" signals where the series of measures corresponding to a window are summarized by means of average, variance, skewness, etc.
 
+We have used the data from the registers type 2 to create our first predictor, though it only applies to registers of this type. There are only 406 registers type 2 in the training set, out of over 19000 registers. Neither of the registers of the validation set is register type 2, we may therefore produce a different kind of predictors for the latter.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+We are not using predictors for one kind of register  for the other type. First we will create the 2 training and testing sets corresponding to the 2 different register types.
 
-```{r}
-summary(cars)
+```{r set-up}
+
+# Load the csv files 
+
+HAR_fulldata <- read.csv("pml-training.csv")
+HAR_testdata <- read.csv("pml-testing.csv")
+
+# Select only the proper columns
+
+HAR_fd_stat <- subset(HAR_fulldata[,c(12:36,50:59,69:83,87:88,90:91,93:101,103:112,125:129,131:139,141:150,160)], HAR_fulldata$new_window %in% "yes")
+HAR_fd_smpls <- subset(HAR_fulldata[,c(8:11,46:49,84:86,102,122:124,140,160)], HAR_fulldata$new_window %in% "no")
+
+# Use the caret lib
+
+library("caret", lib.loc="~/R/x86_64-pc-linux-gnu-library/3.2")
+
+# Partitioning the data in the training and testing sets
+
+inTr_sm <- createDataPartition(HAR_fd_smpls$classe,p=0.6, list=FALSE)
+inTr_st <- createDataPartition(HAR_fd_stat$classe,p=0.8, list=FALSE)
+
+# _smpls suffix means register type 1
+# _stat suffix means register type 2
+
+train_smpls <- HAR_fd_smpls[inTr_sm,]
+test_smpls <- HAR_fd_smpls[-inTr_sm,]
+test_stat <- HAR_fd_stat[-inTr_st,]
+train_stat <- HAR_fd_stat[inTr_st,]
+
 ```
 
-You can also embed plots, for example:
+## Step 2
 
-```{r, echo=FALSE}
-plot(cars)
+We will make use of the 2 different kind of predictors for the 2 different type of registers.
+
+model_fit01, used for registers type 2, while model_fit02 is intended for registers type 1. We will make the corresponding prediction and obtain the confusion matrix to check the validity of the  prediction.
+
+For the model_fit02 we will make use of a subset of the variables, consisting in:
+
+total_acceleration, roll, pitch and yaw applied to: Belt, arm, forearm and dumbbells. 12 variables in total. 
+
+
+```{r modelling, eval=FALSE}
+
+# model_fit01 took over an hour with so many variables. No simulation included
+
+model_fit01 <- train(classe ~ ., data=train_stat)
+model_fit02 <- train(classe ~ ., data=train_smpls, method="rf")
+
+# prediction and test accuracy through the confussion matrix
+
+prediction01 <- predict(model_fit01, newdata=test_stat)
+confusionMatrix(prediction01,test_stat$classe)
+
+prediction02 <- predict(model_fit02, newdata=test_smpls)
+confusionMatrix(prediction02,test_smpls$classe)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+For the first model the confusion matrix show us an accuracy of 0.83 and kappa of 0.79
+
+Confusion Matrix and Statistics
+
+          Reference
+Prediction  A  B  C  D  E
+         A 20  3  2  1  0
+         B  0 11  3  0  1
+         C  1  0  9  0  0
+         D  0  0  0 11  0
+         E  0  1  0  1 14
+
+Overall Statistics
+                                          
+               Accuracy : 0.8333          
+                 95% CI : (0.7319, 0.9082)
+    No Information Rate : 0.2692          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.7883          
+ Mcnemar's Test P-Value : NA              
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.9524   0.7333   0.6429   0.8462   0.9333
+Specificity            0.8947   0.9365   0.9844   1.0000   0.9683
+
+For the second model, we have obtained better results, close to 100% with 0.98 of accuracy, and sensitivity and specificity over 0.97 for the 5 levels. This model is also applicable to most of the registers, included the validation ones.
+
+          Reference
+Prediction    A    B    C    D    E
+         A 2178   13    0    0    0
+         B    7 1446   14    0    3
+         C    3   26 1307   10    0
+         D    0    2   18 1246    0
+         E    0    0    1    2 1408
+
+Overall Statistics
+                                          
+               Accuracy : 0.9871          
+                 95% CI : (0.9843, 0.9895)
+    No Information Rate : 0.2847          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.9837          
+ Mcnemar's Test P-Value : NA              
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.9954   0.9724   0.9754   0.9905   0.9979
+Specificity            0.9976   0.9961   0.9939   0.9969   0.9995
+
+## Step 3
+
+Now we will use cross-validation to prove the capability of the model oyt of the sample. For that purpose wi will make use of 3 folds method. 
+
+The k-fold cross validation method involves splitting the dataset into k-subsets. For each subset is held out while the model is trained on all other subsets. This process is completed until accuracy is determine for each instance in the dataset, and an overall accuracy estimate is provided.
+
+For the control of the process we will employ the traincontrol function of the caret library.
+
+```{r cross-validation}
+
+# Use the caret lib
+library("caret", lib.loc="~/R/x86_64-pc-linux-gnu-library/3.2")
+
+# define training control
+train_control <- trainControl(method="cv", number=3)
+
+# train the model 
+model <- train(classe~., data=train_smpls, trControl=train_control, method="rf")
+
+# make predictions
+predictions <- predict(model,test_smpls)
+
+# summarize results
+confusionMatrix(predictions, test_smpls$classe)
+
+```
+
+# Step 4
+
+Performed for the subsequent exercise
+
+
+# Results / Conclusions
+
+If the results are evaluated by the accueracy of the model with the validation sample, the confidence would be 100%: 20 out of 20 well predicted.
+
+Only one caveat the validation sample is in-sample. It is well noticed that the num_window correspond always to registers existing in the training set. We checked the timestamps matched also the corresponding values.
