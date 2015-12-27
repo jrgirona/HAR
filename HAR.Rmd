@@ -16,6 +16,14 @@ There is a train data set and a validation data set.  highlighting basic feature
 
 
 ## Methodology
+
+- Define your error rate
+- Split data into:
+    Training (60% of "PML-testing.csv"), Testing (the remaining 40%), Validation ("PML-testing.csv")
+- On the training set pick prediction function
+    Use cross-validation with the testing partition of the training set.
+- Apply to the validation sample (PML-testing.csv)
+
 The first exploratory analysis of the data show the following conclussions:
 
 
