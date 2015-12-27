@@ -1,0 +1,34 @@
+---
+title: "HAR classification project"
+author: "Ramón Girona"
+date: "27 de diciembre de 2015"
+output: html_document
+---
+
+## Overview
+
+The objective is to perform an analysis of data from Human Activity Recognition project (HAR) corresponding to 6 different practicioners exercising Weight Lifting. From this analysis we may produce a predictor function, which can serve to classify exercises out of sample i.e. out of the training data set.  
+
+
+## HAR dataset
+
+There is a train data set and a validation data set.  highlighting basic features of the data, by using confidence intervals and/or tests.
+
+
+## Methodology
+The first exploratory analysis of the data show the following conclussions:
+
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+summary(cars)
+```
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
